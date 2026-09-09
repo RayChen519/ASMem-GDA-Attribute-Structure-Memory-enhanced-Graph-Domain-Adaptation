@@ -34,5 +34,3 @@ dist/
 code/artifacts/**/*
 !code/artifacts/**/
 !code/artifacts/**/.gitkeep
-code/training/checkpoints/*
-!code/training/checkpoints/.gitkeep
