@@ -1,0 +1,18 @@
+{
+  "max_epochs": 150,
+  "min_epochs": 30,
+  "patience": 20,
+  "encoder_lr": 0.0005,
+  "as_lr": 0.001,
+  "classifier_lr": 0.001,
+  "discriminator_lr": 0.001,
+  "weight_decay": 0.0005,
+  "gradient_clip_norm": 5.0,
+  "warmup_epochs": 5,
+  "minimum_lr_ratio": 0.1,
+  "lambda_adv_max": 0.1,
+  "lambda_sp": 0.0001,
+  "P": 128,
+  "metis_seed": 0,
+  "smoke": false
+}

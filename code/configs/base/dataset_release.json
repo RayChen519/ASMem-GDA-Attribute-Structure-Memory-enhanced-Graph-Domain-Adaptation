@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/joe817/SGDA",
+  "commit": "731fd50ce65fc19b89db9d157448af92e2a01c81",
+  "alignment_evidence": "https://www.ijcai.org/proceedings/2023/0253.pdf#page=5",
+  "alignment_basis": "Official SGDA prealigned release. Section 5.1 states the three attribute sets are unioned to 6775 dimensions. Pinned bytes preserve that release's column order. Word strings were not published in the MAT bundle; IDs refer to release columns, not recovered words.",
+  "class_basis": "Shared group columns in the same official release; retain opaque column IDs. Human-readable class-to-column names are not asserted.",
+  "domains": {
+    "ACMv9": {"filename": "acmv9.mat", "sha256": "ee072387b0ea6599d9e9b4e60957b7b690aae4eb30adb3b9968a1e2c4e36cd74"},
+    "Citationv1": {"filename": "citationv1.mat", "sha256": "98f8f96b4d6141ad6d413bbc43116da54462e10a6b5e10d1b056202f82520c25"},
+    "DBLPv7": {"filename": "dblpv7.mat", "sha256": "986b5505025a188a2526be37225408bbb1eef2da8b643775ad3f7e1c12768932"}
+  }
+}

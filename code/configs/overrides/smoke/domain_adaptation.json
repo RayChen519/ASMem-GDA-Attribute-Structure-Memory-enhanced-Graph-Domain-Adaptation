@@ -1,0 +1,6 @@
+{
+  "max_epochs": 2,
+  "min_epochs": 1,
+  "patience": 20,
+  "smoke": true
+}

@@ -1,0 +1,4 @@
+-r requirements-dataset.txt
+pymetis==2025.2.2
+# Windows CPython 3.13: see utils/runtime/install_metis_windows.py for
+# pinned conda-forge binaries when PyPI source compilation is unavailable.

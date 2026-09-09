@@ -1,0 +1,38 @@
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-tmp-*/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
+
+# Build and packaging outputs
+build/
+dist/
+*.egg-info/
+
+# Generated project data, runs, reports, and checkpoints
+code/artifacts/**/*
+!code/artifacts/**/
+!code/artifacts/**/.gitkeep
+code/training/checkpoints/*
+!code/training/checkpoints/.gitkeep

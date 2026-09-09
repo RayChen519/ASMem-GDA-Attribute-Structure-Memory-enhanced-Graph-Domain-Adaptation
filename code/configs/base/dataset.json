@@ -1,0 +1,17 @@
+{
+  "schema_version": "dataset-v1",
+  "feature_dim": 6775,
+  "label_rates": [0.01, 0.03, 0.05],
+  "formal_seeds": [0, 1, 2, 3, 4],
+  "development_seed": 2026,
+  "train_fraction": 0.8,
+  "multilabel_policy": "upstream_argmax",
+  "raw_release": "configs/base/dataset_release.json",
+  "attribute_metadata": "configs/base/attribute_metadata.json",
+  "paths": {
+    "raw": "artifacts/datasets/raw",
+    "processed": "artifacts/datasets/processed",
+    "manifests": "artifacts/datasets/manifests",
+    "cache": "artifacts/cache"
+  }
+}
