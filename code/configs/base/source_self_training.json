@@ -1,0 +1,1 @@
+{"stage": "source_self_training", "max_epochs": 50, "min_epochs": 10, "patience": 10}

@@ -1,0 +1,1 @@
+{"stage": "dual_domain_finetuning", "max_epochs": 100, "min_epochs": 30, "patience": 20}

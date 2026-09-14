@@ -1,0 +1,1 @@
+{"smoke": true, "max_epochs": 2, "min_epochs": 1, "K": 8, "refresh_interval": 1}
