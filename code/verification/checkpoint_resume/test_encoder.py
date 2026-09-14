@@ -175,13 +175,16 @@ def test_evaluation_file_replacements_leave_entire_training_state_identical(data
         return original_load(path, *args, **kwargs)
     monkeypatch.setattr(torch, 'load', guarded_load)
     checkpoints = []
-    for i, labels in enumerate([torch.arange(7) % 3, torch.tensor([2, 1, 0, 0, 2, 1, 2]), torch.full((7,), -999)]):
-        save_tensor(dataset[4], labels)  # no manifest edit: training must never verify/open this file
+    for i, labels in enumerate([torch.arange(7) % 3, torch.randint(3,(7,),generator=torch.Generator().manual_seed(933)), torch.full((7,), -999)]):
+        save_tensor(dataset[4], {'node_id':torch.arange(7), 'labels':labels})  # no manifest edit: training must never verify/open this file
         source, target = load_training_views(dataset[0], 'A', 'B', .05, 0)
         seed_everything(99)
         trainer = make_trainer((dataset[0], source, target, dataset[3], dataset[4]), tmp_path / str(i))
         trainer.fit(target)
         checkpoints.append(original_load(tmp_path / str(i) / 'encoder_latest.pt', weights_only=True))
+        from training.stages.encoder_warmup.trainer import evaluation_mode
+        with evaluation_mode(trainer.encoder, trainer.classifier):
+            checkpoints[-1]['target_logits'] = trainer.classifier(trainer.encoder(target.x, target.normalized_adjacency).z).clone()
     equal(checkpoints[0], checkpoints[1])
     equal(checkpoints[0], checkpoints[2])
 

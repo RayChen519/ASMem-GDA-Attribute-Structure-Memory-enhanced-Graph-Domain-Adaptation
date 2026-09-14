@@ -20,6 +20,8 @@ from utils.randomness.state import seed_everything
 
 
 def run(args):
+    from experiments.scheduling.admission import check_cli
+    check_cli(args)
     if args.output.exists() and any(args.output.iterdir()) and args.resume is None:
         raise ValueError('Output is nonempty; use a new run or explicit resume')
     torch.set_num_threads(args.threads)
@@ -82,6 +84,7 @@ def main():
     p.add_argument('--device', default='cpu')
     p.add_argument('--threads', type=int, default=2)
     p.add_argument('--smoke', action='store_true')
+    p.add_argument('--integration-report', type=Path)
     p.add_argument('--smoke-epochs', type=int, choices=(1, 2, 3), default=2)
     p.add_argument('--resume', type=Path)
     run(p.parse_args())

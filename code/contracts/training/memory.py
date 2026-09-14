@@ -27,11 +27,17 @@ class MemoryConfig:
     gradient_clip_norm: float = 5.
     warmup_epochs: int = 5
     minimum_lr_ratio: float = .1
+    unfreeze_epoch: int = 21
+    target_ramp_epochs: int = 30
     smoke: bool = False
 
     def __post_init__(self):
         if self.stage not in STAGES or not 1 <= self.min_epochs <= self.max_epochs or self.patience < 1:
             raise ValueError('Invalid stage or stopping bounds')
+        if self.unfreeze_epoch < 2 or self.target_ramp_epochs < 2:
+            raise ValueError('Invalid transition schedule')
+        if not self.smoke and (self.unfreeze_epoch, self.target_ramp_epochs) != (21, 30):
+            raise ValueError('Formal transition schedule mismatch')
         if self.smoke:
             if self.max_epochs > 3:
                 raise ValueError('Smoke limited to 1-3 epochs')
@@ -53,6 +59,6 @@ class MemoryConfig:
                 'all_masked_read': 'zero', 'refresh_epochs': '1,1+R,...',
                 'dual_source_rounds': 'continue_source_pl_best',
                 'unfreeze_optimizer': 'rebuild_preserve_existing_moments_stage_clock',
-                'lambda_t_schedule': '(epoch-1)/29 capped at 1',
+                'lambda_t_schedule': f'(epoch-1)/{self.target_ramp_epochs - 1} capped at 1',
                 'pre_unfreeze_objective': 'full_loss_with_frozen_representation',
                 'scheduler': 'linear_5_epochs_then_cosine_v1'}

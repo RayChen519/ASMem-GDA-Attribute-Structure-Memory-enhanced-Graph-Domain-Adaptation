@@ -108,6 +108,31 @@ def test_epoch20_21_gradients_refresh_and_teacher(chain):
     assert run.schedule(30)['lambda_t'] == .5
 
 
+def test_compressed_transition_exact_resume(chain):
+    mp, sp = prepare_parents(chain)
+    root = chain[-1]
+    def make_run(folder):
+        config = MemoryConfig(stage='dual_domain_finetuning', max_epochs=2, min_epochs=1,
+            smoke=True, K=8, refresh_interval=1, unfreeze_epoch=2, target_ramp_epochs=2)
+        return MemoryTraining(chain[0], chain[1], chain[2], root/folder, config, root/'cache',
+                              memory_best=mp, source_pl_best=sp)
+    seed_everything(41)
+    full = make_run('compressed_full')
+    full.fit()
+    expected = read_verified(full.output_dir/'full_latest.pt')
+    seed_everything(41)
+    partial = make_run('compressed_resume')
+    partial.fit(until_epoch=1)
+    resumed = make_run('compressed_resume')
+    resumed.resume(resumed.output_dir/'full_latest.pt')
+    resumed.fit()
+    actual = read_verified(resumed.output_dir/'full_latest.pt')
+    equal(expected, actual)
+    assert resumed.schedule(2)['lambda_t'] == .5
+    assert all(p.requires_grad for p in resumed.da.encoder.parameters())
+    assert actual['pseudo_label_state']['target']['refresh_index'] == 1
+
+
 @pytest.mark.parametrize('part', ['anchor', 'representation', 'mask', 'round', 'optimizer', 'scheduler', 'mode', 'config', 'rng', 'teacher'])
 def test_reject_corruption_before_mutation(chain, part):
     mp, sp = prepare_parents(chain)
@@ -193,9 +218,9 @@ def test_target_label_sentinel_all_three_stages(chain, setup, monkeypatch):
     data, meta, encoder, parts = setup
     root = chain[-1]
     runs = []
-    for variant, labels in enumerate((torch.arange(257) % 3, torch.arange(257).flip(0) % 3,
+    for variant, labels in enumerate((torch.arange(257) % 3, torch.randint(3, (257,), generator=torch.Generator().manual_seed(931)),
                                       torch.full((257,), -999))):
-        save_tensor(data[4], labels)
+        save_tensor(data[4], {'node_id':torch.arange(257), 'labels':labels})
         target = Sentinel(**{k: getattr(data[2], k) for k in TargetTrainView.__dataclass_fields__})
         changed = ((data[0], data[1], target, data[3], data[4]), meta, encoder, parts)
         seed_everything(101)
@@ -209,7 +234,13 @@ def test_target_label_sentinel_all_three_stages(chain, setup, monkeypatch):
         for path in (mp, sp, dual.output_dir / 'full_best.pt'):
             payload = read_verified(path)
             states.append({k: payload[k] for k in ('model_state', 'anchor_state', 'pseudo_label_state',
-                          'refresh_history', 'epoch', 'early_stop_state', 'history', 'rng_state')})
+                          'refresh_history', 'epoch', 'early_stop_state', 'history', 'rng_state',
+                          'optimizer_state', 'scheduler_state', 'requires_grad', 'training_modes', 'grl_state')})
+        states.append({k: payload['metadata'][k] for k in ('split_hash', 'anchor_hash', 'attribute_union_hash',
+                      'resolved_config_hash', 'partitions', 'data_hash', 'pseudo_node_ids')})
+        from training.stages.encoder_warmup.trainer import evaluation_mode
+        with evaluation_mode(*dual.modules.values()):
+            states.append(dual.da.classifier(dual.da.representations(source=False).h_as).clone())
         runs.append(states)
     equal(runs[0], runs[1])
     equal(runs[0], runs[2])

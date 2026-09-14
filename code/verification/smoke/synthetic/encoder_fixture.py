@@ -50,7 +50,7 @@ def synthetic_dataset(root, sizes=(9, 7)):
                 'tasks': [{'source': 'A', 'target': 'B'}],
                 'domains': {d: {'domain_id': int(g.domain_id[0]),
                                 'graph': save(f'artifacts/{d}/graph.pt', asdict(g))} for d, g in graphs.items()}}
-    manifest['domains']['B']['evaluation_labels'] = save('artifacts/evaluation_only/target.pt', torch.arange(sizes[1]) % 3)
+    manifest['domains']['B']['evaluation_labels'] = save('artifacts/evaluation_only/target.pt', {'node_id': torch.arange(sizes[1]), 'labels': torch.arange(sizes[1]) % 3})
     manifest_path = root / 'artifacts/datasets/manifests/dataset_manifest.json'
     write_json(manifest_path, manifest)
     source, target = load_training_views(manifest_path, 'A', 'B', .05, 0)

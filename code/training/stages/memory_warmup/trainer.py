@@ -169,11 +169,11 @@ class MemoryTraining:
         progress = (epoch - 1) / max(1, self.config.max_epochs - 1) if dual else 0.
         return {'progress': progress, 'lambda_adv': self.config.lambda_adv_max *
                 (2 / (1 + math.exp(-10 * progress)) - 1) if dual else 0.,
-                'lambda_t': self.config.lambda_t_max * min(1., (epoch - 1) / 29) if dual else 0.,
+                'lambda_t': self.config.lambda_t_max * min(1., (epoch - 1) / (self.config.target_ramp_epochs - 1)) if dual else 0.,
                 'coefficient': 1.}
 
     def train_step(self, epoch):
-        if [g['name'] for g in self.optimizer.param_groups] != list(rates(self.config.stage, epoch)):
+        if [g['name'] for g in self.optimizer.param_groups] != list(rates(self.config.stage, epoch, self.config.unfreeze_epoch)):
             self.optimizer, self.scheduler = build(self.modules, self.config, epoch,
                                                    self.optimizer, completed_epochs=epoch-1)
         configure(self.modules, self.config, epoch)

@@ -49,9 +49,12 @@ def main(stage='memory_warmup'):
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--threads', type=int, default=2)
     parser.add_argument('--smoke', action='store_true')
+    parser.add_argument('--integration-report', type=Path)
     parser.add_argument('--smoke-epochs', type=int, choices=(1, 2, 3), default=2)
     parser.add_argument('--resume', type=Path)
     args = parser.parse_args()
+    from experiments.scheduling.admission import check_cli
+    check_cli(args)
     if args.output.exists() and any(args.output.iterdir()) and args.resume is None:
         raise ValueError('Use a new output directory or explicitly resume')
     config_root = Path(__file__).resolve().parents[3] / 'configs'

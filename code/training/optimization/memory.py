@@ -5,21 +5,21 @@ import torch
 from training.schedules.warmup_cosine import build_scheduler
 
 
-def rates(stage, epoch):
+def rates(stage, epoch, unfreeze_epoch=21):
     if stage == 'memory_warmup':
         return {'memory': 1e-3}
     if stage == 'source_self_training':
         return {'classifier': 1e-3}
     if stage != 'dual_domain_finetuning':
         raise ValueError('Unknown stage')
-    if epoch <= 20:
+    if epoch < unfreeze_epoch:
         return {'classifier': 1e-3, 'discriminator': 1e-3}
     return {'shared_gcn': 1e-4, 'attribute_structure': 1e-4,
             'classifier': 5e-4, 'discriminator': 5e-4}
 
 
 def configure(modules, config, epoch):
-    active = rates(config.stage, epoch)
+    active = rates(config.stage, epoch, config.unfreeze_epoch)
     for name, module in modules.items():
         module.requires_grad_(name in active)
         module.train(name in active)

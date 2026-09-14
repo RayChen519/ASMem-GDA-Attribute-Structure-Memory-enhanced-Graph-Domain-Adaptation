@@ -1,0 +1,15 @@
+{
+  "encoder_epochs": 1,
+  "da_epochs": 2,
+  "memory_epochs": 1,
+  "source_epochs": 2,
+  "dual_epochs": 2,
+  "K": 8,
+  "refresh_interval": 1,
+  "unfreeze_epoch": 2,
+  "target_ramp_epochs": 2,
+  "source": "ACMv9",
+  "target": "Citationv1",
+  "label_rate": 0.05,
+  "seed": 0
+}

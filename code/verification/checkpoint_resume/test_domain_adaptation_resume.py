@@ -130,8 +130,8 @@ def test_target_sentinel_and_evaluation_file_changes_do_not_affect_training(setu
         return original_load(path, *a, **kw)
     monkeypatch.setattr(torch, 'load', guarded)
     states = []
-    for i, labels in enumerate([torch.arange(257)%3, torch.arange(257).flip(0)%3, torch.full((257,), -999)]):
-        save_tensor(data[4], labels)
+    for i, labels in enumerate([torch.arange(257)%3, torch.randint(3,(257,),generator=torch.Generator().manual_seed(932)), torch.full((257,), -999)]):
+        save_tensor(data[4], {'node_id':torch.arange(257), 'labels':labels})
         source, target = load_training_views(data[0], 'A', 'B', .05, 0)
         target = Sentinel(**{k: getattr(target, k) for k in TargetTrainView.__dataclass_fields__})
         altered = ((data[0], source, target, data[3], data[4]), meta, parent, parts)
@@ -139,6 +139,9 @@ def test_target_sentinel_and_evaluation_file_changes_do_not_affect_training(setu
         trainer = make(altered, tmp_path / str(i))
         trainer.fit(until_epoch=2)
         states.append(original_load(tmp_path / str(i) / 'da_latest.pt', weights_only=True))
+        from training.stages.encoder_warmup.trainer import evaluation_mode
+        with evaluation_mode(*trainer.modules.values()):
+            states[-1]['target_logits'] = trainer.classifier(trainer.representations(source=False).h_as).clone()
     equal(states[0], states[1])
     equal(states[0], states[2])
 

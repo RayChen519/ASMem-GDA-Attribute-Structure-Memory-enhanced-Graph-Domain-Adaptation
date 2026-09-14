@@ -82,11 +82,11 @@ def validate(payload, modules, metadata):
     progress = (epoch - 1) / max(1, config.max_epochs - 1) if dual else 0.
     schedule = {'progress': progress, 'lambda_adv': config.lambda_adv_max *
                 (2 / (1 + math.exp(-10 * progress)) - 1) if dual else 0.,
-                'lambda_t': config.lambda_t_max * min(1., (epoch - 1) / 29) if dual else 0.,
+                'lambda_t': config.lambda_t_max * min(1., (epoch - 1) / (config.target_ramp_epochs - 1)) if dual else 0.,
                 'coefficient': 1.}
     if payload['grl_state'] != schedule or payload['history'][-1]['schedule'] != schedule:
         raise ValueError('Memory GRL/loss schedule mismatch')
-    active = rates(config.stage, epoch)
+    active = rates(config.stage, epoch, config.unfreeze_epoch)
     expected_flags = {f'{n}.{k}': n in active for n, m in modules.items() for k, p in m.named_parameters()}
     expected_modes = {f'{n}.{k}': n in active for n, m in modules.items() for k, s in m.named_modules()}
     if payload['requires_grad'] != expected_flags or payload['training_modes'] != expected_modes:
@@ -131,7 +131,7 @@ def validate(payload, modules, metadata):
             if any(k not in state or state[k].shape != p.shape or not torch.isfinite(state[k]).all()
                    for k in ('exp_avg', 'exp_avg_sq')):
                 raise ValueError('Memory optimizer moment mismatch')
-            expected_step = epoch - 20 if dual and g['name'] in ('shared_gcn', 'attribute_structure') else epoch
+            expected_step = epoch - config.unfreeze_epoch + 1 if dual and g['name'] in ('shared_gcn', 'attribute_structure') else epoch
             if ('step' not in state or state['step'].numel() != 1
                     or not torch.isfinite(state['step']).all() or state['step'].item() != expected_step):
                 raise ValueError('Memory optimizer step mismatch')

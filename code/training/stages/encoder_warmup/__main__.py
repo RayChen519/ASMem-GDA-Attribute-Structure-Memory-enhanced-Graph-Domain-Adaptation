@@ -25,9 +25,12 @@ def main():
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--threads', type=int, default=2)
     parser.add_argument('--smoke', action='store_true')
+    parser.add_argument('--integration-report', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--resume', type=Path)
     args = parser.parse_args()
+    from experiments.scheduling.admission import check_cli
+    check_cli(args)
     if args.output.exists() and any(args.output.iterdir()) and args.resume is None:
         raise ValueError('Output directory is nonempty; choose a new run or explicitly resume')
     if args.resume is not None and args.resume.resolve().parent != args.output.resolve():
