@@ -10,6 +10,7 @@ from data.cache.store import digest, file_hash, io_path, read_json, save_tensor,
 from data.prepare import tensor_hash
 from training.optimization.memory import rates
 from utils.randomness.state import capture_rng
+from experiments.registry import variant
 
 
 def reference(path):
@@ -27,7 +28,8 @@ def read_verified(path, *, best=False, ancestors=True):
     if (record['metadata_hash'] != digest(metadata) or record['epoch'] != payload['epoch']
             or digest(metadata['resolved_config']) != metadata['resolved_config_hash']):
         raise ValueError('Checkpoint metadata/epoch/config hash mismatch')
-    if best and (not path.stem.endswith('_best') or payload['epoch'] != payload['early_stop_state']['best_epoch']):
+    untrained = metadata.get('untrained_memory') is True and path.stem == 'untrained_memory' and metadata['resolved_config']['variant'] == 'M5' and payload['epoch'] == 0
+    if best and not untrained and (not path.stem.endswith('_best') or payload['epoch'] != payload['early_stop_state']['best_epoch']):
         raise ValueError('Stage inheritance requires selected best checkpoint')
     if ancestors:
         parents = metadata.get('parents', {})
@@ -53,7 +55,7 @@ def save(path, trainer):
                'early_stop_state': asdict(trainer.early_stop), 'history': trainer.history,
                'rng_state': capture_rng(), 'anchor_state': trainer.anchor_state,
                'pseudo_label_state': trainer.pseudo_state, 'refresh_history': trainer.refresh_history,
-               'grl_state': trainer.history[-1]['schedule']}
+               'grl_state': trainer.history[-1]['schedule'] if trainer.history else None}
     save_tensor(path, payload)
     write_json(Path(path).with_suffix('.json'), {'name': Path(path).stem, 'sha256': file_hash(path),
                'epoch': trainer.epoch, 'metadata_hash': digest(trainer.metadata)})
@@ -67,6 +69,20 @@ def validate(payload, modules, metadata):
     if config.resolved() != metadata['resolved_config']:
         raise ValueError('Memory configuration contract mismatch')
     epoch = payload['epoch']
+    if metadata.get('untrained_memory'):
+        if (config.variant != 'M5' or config.stage != 'memory_warmup' or epoch != 0
+                or payload['history'] or payload['optimizer_state']['state']
+                or payload['pseudo_label_state'] or payload['refresh_history']
+                or payload['scheduler_state']['last_epoch'] != 0):
+            raise ValueError('Invalid untrained Memory artifact')
+        for name,module in modules.items():
+            live=module.state_dict(); saved=payload['model_state'][name]
+            if live.keys()!=saved.keys() or any(live[k].shape!=saved[k].shape or not torch.isfinite(saved[k]).all() for k in live):
+                raise ValueError('Invalid untrained Memory tensors')
+        anchor=payload['anchor_state']
+        if anchor['hash']!=metadata['anchor_hash'] or tensor_hash({'ids':anchor['ids']})!=anchor['hash']:
+            raise ValueError('Invalid untrained Memory anchors')
+        return EarlyStopState()
     early = EarlyStopState(**payload['early_stop_state'])
     if not 1 <= early.best_epoch <= epoch <= config.max_epochs or len(payload['history']) != epoch:
         raise ValueError('Memory epoch/history mismatch')
@@ -175,7 +191,8 @@ def validate(payload, modules, metadata):
             raise ValueError('Pseudo-label refresh history/hash mismatch')
         replay = select(state['probability'], state['classifier_logits'], state['node_ids'],
                         gamma=config.gamma, q=config.q, previous=state['previous_predictions'],
-                        refresh_index=state['refresh_index'])
+                        refresh_index=state['refresh_index'],
+                        consistency=variant(config.variant)['options']['consistency'])
         for key, expected in replay.items():
             actual = state[key]
             if isinstance(expected, torch.Tensor):

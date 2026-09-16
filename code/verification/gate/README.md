@@ -36,3 +36,7 @@ during training, including pseudo labels and checkpoint selection. CPU determini
 runs compare complete tensors exactly. The synthetic graph includes empty/nonempty
 pseudo-label tests in the ordered regression suite; confidence injection is confined
 to that targeted test and is never applied to real-data training.
+
+The registered_experiments group additionally checks all 18 variants, M5 untrained
+artifacts, fail-closed formal admission, orchestration resume and independent
+evaluation. See the repository README for the complete Linux server workflow.

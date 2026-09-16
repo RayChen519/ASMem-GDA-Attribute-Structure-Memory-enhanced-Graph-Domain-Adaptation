@@ -2,7 +2,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-pytest-tmp-*/
+/pytest-tmp-*/
+/pytest-atomic-*/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -31,6 +32,8 @@ dist/
 *.egg-info/
 
 # Generated project data, runs, reports, and checkpoints
-code/artifacts/**/*
-!code/artifacts/**/
-!code/artifacts/**/.gitkeep
+/code/artifacts/
+
+# Local resolved environment and copied verification workspaces
+/requirements-server-resolved.txt
+/code/artifacts/clean-*/

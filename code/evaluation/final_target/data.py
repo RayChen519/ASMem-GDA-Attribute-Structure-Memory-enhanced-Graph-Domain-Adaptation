@@ -7,9 +7,7 @@ import torch
 from data.cache.store import digest, file_hash, read_json
 from data.views.training import load_manifest, verified_tensor
 
-FINAL_CHECKPOINT = {'B0': 'encoder_best', 'B1': 'da_best', 'B2': 'da_best',
-                    'B3': 'da_best', 'B4': 'da_best', 'B5': 'source_pl_best',
-                    'B6': 'full_best'}
+from experiments.registry import FINAL as FINAL_CHECKPOINT
 
 
 @dataclass(frozen=True, slots=True)

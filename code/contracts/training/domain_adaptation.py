@@ -20,17 +20,24 @@ class DAConfig:
     P: int = 128
     metis_seed: int = 0
     smoke: bool = False
+    development: bool = False
+    sensitivity: bool = False
+    variant: str = "B6"
 
     def __post_init__(self):
+        from experiments.registry import variant
+        variant(self.variant)
+        from experiments.configuration import validate_numbers
+        validate_numbers(self)
         if not 1 <= self.min_epochs <= self.max_epochs or self.patience < 1:
             raise ValueError('Invalid early stopping bounds')
         if not self.smoke and (self.max_epochs, self.min_epochs, self.patience) != (150, 30, 20):
             raise ValueError('Shortened epochs require explicit smoke=True')
         if self.smoke and self.max_epochs > 3:
             raise ValueError('DA smoke is limited to 1-3 epochs')
-        if (self.P, self.metis_seed) != (128, 0):
+        if (self.P, self.metis_seed) != (128, 0) and not (self.sensitivity and self.P in (64,128,256) and self.metis_seed == 0):
             raise ValueError('Main and smoke use METIS P=128, seed=0')
-        if (self.encoder_lr, self.as_lr, self.classifier_lr, self.discriminator_lr,
+        if not self.development and (self.encoder_lr, self.as_lr, self.classifier_lr, self.discriminator_lr,
                 self.weight_decay, self.gradient_clip_norm, self.warmup_epochs, self.minimum_lr_ratio,
                 self.lambda_adv_max, self.lambda_sp) != (5e-4, 1e-3, 1e-3, 1e-3, 5e-4, 5., 5, .1, .1, 1e-4):
             raise ValueError('DA optimizer/loss defaults must follow the training plan')

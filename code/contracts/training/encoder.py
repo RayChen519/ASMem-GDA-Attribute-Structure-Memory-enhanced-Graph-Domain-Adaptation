@@ -14,13 +14,20 @@ class WarmupConfig:
     warmup_epochs: int = 5
     minimum_lr_ratio: float = 0.1
     smoke: bool = False
+    development: bool = False
+    sensitivity: bool = False
+    variant: str = "B6"
 
     def __post_init__(self):
+        from experiments.registry import variant
+        variant(self.variant)
+        from experiments.configuration import validate_numbers
+        validate_numbers(self)
         if not 1 <= self.min_epochs <= self.max_epochs or self.patience < 1:
             raise ValueError('Invalid early stopping bounds')
         if not self.smoke and (self.max_epochs, self.min_epochs, self.patience) != (100, 20, 15):
             raise ValueError('Shortened epochs require explicit smoke=True')
-        if (self.encoder_lr, self.classifier_lr, self.weight_decay,
+        if not self.development and (self.encoder_lr, self.classifier_lr, self.weight_decay,
                 self.gradient_clip_norm, self.warmup_epochs, self.minimum_lr_ratio) != (
                 5e-4, 1e-3, 5e-4, 5.0, 5, 0.1):
             raise ValueError('Optimizer/scheduler must follow the training plan')

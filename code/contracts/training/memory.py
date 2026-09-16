@@ -30,8 +30,15 @@ class MemoryConfig:
     unfreeze_epoch: int = 21
     target_ramp_epochs: int = 30
     smoke: bool = False
+    development: bool = False
+    sensitivity: bool = False
+    variant: str = "B6"
 
     def __post_init__(self):
+        from experiments.registry import variant
+        variant(self.variant)
+        from experiments.configuration import validate_numbers
+        validate_numbers(self)
         if self.stage not in STAGES or not 1 <= self.min_epochs <= self.max_epochs or self.patience < 1:
             raise ValueError('Invalid stage or stopping bounds')
         if self.unfreeze_epoch < 2 or self.target_ramp_epochs < 2:
@@ -43,14 +50,14 @@ class MemoryConfig:
                 raise ValueError('Smoke limited to 1-3 epochs')
         elif (self.max_epochs, self.min_epochs, self.patience) != STAGES[self.stage][:3]:
             raise ValueError('Formal stage stopping schedule mismatch')
-        if (self.alpha, self.beta, self.temperature, self.gamma, self.q, self.lambda_s,
+        if not (self.development or self.sensitivity) and (self.alpha, self.beta, self.temperature, self.gamma, self.q, self.lambda_s,
             self.lambda_t_max, self.lambda_adv_max, self.lambda_sp, self.weight_decay,
             self.gradient_clip_norm, self.warmup_epochs, self.minimum_lr_ratio) != (
                 2., 1., .1, .9, .2, .5, .5, .1, 1e-4, 5e-4, 5., 5, .1):
             raise ValueError('Unregistered change to plan defaults')
         if type(self.K) is not int or self.K < 1 or type(self.refresh_interval) is not int or self.refresh_interval < 1:
             raise ValueError('Invalid K/refresh interval')
-        if not self.smoke and (self.K, self.refresh_interval) != (128, 10):
+        if not (self.smoke or self.development or self.sensitivity) and (self.K, self.refresh_interval) != (128, 10):
             raise ValueError('Formal anchor/refresh defaults mismatch')
 
     def resolved(self):

@@ -5,7 +5,7 @@ import torch
 
 
 @torch.no_grad()
-def select(probability, classifier_logits, node_ids, *, gamma=.9, q=.2, previous=None, refresh_index=0):
+def select(probability, classifier_logits, node_ids, *, gamma=.9, q=.2, previous=None, refresh_index=0, consistency=True):
     probability = probability.detach().clone()
     classifier_logits = classifier_logits.detach()
     node_ids = node_ids.detach().clone()
@@ -37,7 +37,7 @@ def select(probability, classifier_logits, node_ids, *, gamma=.9, q=.2, previous
         if (previous.shape != labels.shape or previous.dtype != torch.long
                 or (previous < 0).any() or (previous >= classes).any()):
             raise ValueError('Previous predictions shape/dtype mismatch')
-        accepted &= (labels == classifier_logits.argmax(-1)) & (labels == previous)
+        if consistency: accepted &= (labels == classifier_logits.argmax(-1)) & (labels == previous)
     for c in range(classes):
         accepted_counts.append(int((accepted & (labels == c)).sum()))
     return {'node_ids': node_ids, 'probability': probability, 'labels': labels.detach(),

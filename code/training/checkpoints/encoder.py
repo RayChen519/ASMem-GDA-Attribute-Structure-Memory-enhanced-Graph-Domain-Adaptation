@@ -14,9 +14,9 @@ def build_metadata(manifest_path, source, target, label_rate, seed, source_view,
     manifest = read_json(manifest_path)
     if (manifest['feature_dim'] != 6775
             or manifest['dataset_version'] != source_view.graph.dataset_version
-            or manifest['dataset_version'] != target_view.dataset_version
+            or (target_view is not None and manifest['dataset_version'] != target_view.dataset_version)
             or manifest['attribute_union_hash'] != source_view.graph.attribute_union_hash
-            or manifest['attribute_union_hash'] != target_view.attribute_union_hash):
+            or (target_view is not None and manifest['attribute_union_hash'] != target_view.attribute_union_hash)):
         raise ValueError('Dataset identity or feature vocabulary mismatch')
     matches = [s for s in manifest['splits'] if s['source_domain'] == source
                and s['label_rate'] == label_rate and s['split_seed'] == seed
@@ -25,6 +25,7 @@ def build_metadata(manifest_path, source, target, label_rate, seed, source_view,
                                    for t in manifest['tasks']):
         raise ValueError('Dataset direction/split mismatch')
     for name, graph in [(source, source_view.graph), (target, target_view)]:
+        if graph is None: continue
         if not torch.all(graph.domain_id == manifest['domains'][name]['domain_id']):
             raise ValueError('Graph domain identity differs from manifest direction')
     return {'stage': 'encoder_warmup', 'source': source, 'target': target,

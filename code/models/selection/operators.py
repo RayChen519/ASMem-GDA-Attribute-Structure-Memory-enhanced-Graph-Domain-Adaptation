@@ -33,15 +33,18 @@ def soft_threshold(x, theta):
 
 
 class Selection(nn.Module):
-    def __init__(self):
+    def __init__(self, scorer="attention", threshold=True):
         super().__init__()
-        self.scorer = PostNormAttention()
-        self.rho = nn.Parameter(torch.tensor(0.))
+        self.scorer = (PostNormAttention() if scorer == "attention" else
+                       nn.Sequential(nn.Linear(128,128), nn.ReLU(), nn.Linear(128,128)))
+        self.threshold = threshold
+        self.rho = nn.Parameter(torch.tensor(0.)) if threshold else None
 
     @property
     def theta(self):
         return F.softplus(self.rho)
 
     def forward(self, y):
-        thresholded = soft_threshold(self.scorer(y), self.theta)
+        scores = self.scorer(y)
+        thresholded = soft_threshold(scores, self.theta) if self.threshold else scores
         return thresholded * y, thresholded

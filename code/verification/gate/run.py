@@ -25,6 +25,9 @@ def snapshot():
     files=[p for folder in ('contracts','data','models','training','evaluation','experiments','configs','verification','utils')
            for p in (ROOT/folder).rglob('*') if p.is_file() and p.suffix in ('.py','.json')]
     files+=list((REPO/'plan').glob('*.md'))+[ROOT/'Framework_intro.md']
+    files += list(ROOT.glob('requirements*.txt'))
+    files += [p for p in (REPO/'scripts').glob('*') if p.is_file()]
+    if (REPO/'README.md').exists(): files.append(REPO/'README.md')
     return digest({str(p.relative_to(REPO)).replace('\\','/'):file_hash(p) for p in sorted(files)})
 
 
@@ -68,7 +71,8 @@ GROUPS={
  'target_sentinel':[E+'::test_evaluation_file_replacements_leave_entire_training_state_identical',
                     D+'::test_target_sentinel_and_evaluation_file_changes_do_not_affect_training',
                     M+'::test_target_label_sentinel_all_three_stages','verification/dataset/test_dataset.py'],
- 'pseudo_label_refresh':['verification/memory_refresh','verification/checkpoint_resume']}
+ 'pseudo_label_refresh':['verification/memory_refresh','verification/checkpoint_resume'],
+ 'registered_experiments':['verification/experiments']}
 
 
 def main():
@@ -102,7 +106,7 @@ def main():
             log,xml=out/(name+'.log'),out/(name+'.xml')
             # Short unique temp roots avoid Windows MAX_PATH in Dataset regression.
             temp=REPO/('pytest-tmp-gate-'+out.name[-12:]+'-'+str(index))
-            cmd=[sys.executable,'-m','pytest',*selectors,'-q','--basetemp='+str(temp),'--junitxml='+str(xml)]
+            cmd=[sys.executable,'-m','pytest',*selectors,'-q','-p','no:cacheprovider','--basetemp='+str(temp),'--junitxml='+str(xml)]
             row={'name':name,'status':'RUNNING','command':subprocess.list2cmdline(cmd),'log':str(log),'junit':str(xml)}
             report['checks'].append(row); persist()
             print(name+' START',flush=True)

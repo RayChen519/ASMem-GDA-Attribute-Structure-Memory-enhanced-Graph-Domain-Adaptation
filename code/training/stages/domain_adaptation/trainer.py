@@ -11,6 +11,7 @@ from data.prepare import tensor_hash
 from evaluation.metrics.classification import classification_metrics
 from models.adversarial.domain import DomainDiscriminator
 from models.fusion.attribute_structure import AttributeStructure
+from experiments.registry import variant
 from training.checkpoints.encoder import load_checkpoint as load_encoder
 from training.checkpoints.domain_adaptation import load_checkpoint, save_checkpoint
 from training.losses.domain_adaptation import classification_loss, domain_loss, sparsity_loss
@@ -64,7 +65,7 @@ class DomainAdaptation:
             raise ValueError('Encoder parent must be the Source-validation selected best epoch')
         # Objects and Parameter identities are inherited, never replaced.
         self.encoder, self.classifier = encoder.to(device), classifier.to(device)
-        self.attribute_structure, self.discriminator = AttributeStructure().to(device), DomainDiscriminator().to(device)
+        self.attribute_structure, self.discriminator = AttributeStructure(variant(self.config.variant)["options"]).to(device), DomainDiscriminator().to(device)
         self.modules = {'shared_gcn': self.encoder, 'attribute_structure': self.attribute_structure,
                         'classifier': self.classifier, 'discriminator': self.discriminator}
         for module in self.modules.values():

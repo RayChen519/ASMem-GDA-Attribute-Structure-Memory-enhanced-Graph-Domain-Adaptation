@@ -8,9 +8,9 @@ def classification_loss(classifier, source_output, train_ids, train_y):
 
 def sparsity_loss(source_output):
     a, s = source_output.attribute_thresholded, source_output.structure_thresholded
-    if a is None or s is None or a.shape != s.shape:
-        raise ValueError('Sparsity requires Source soft-threshold results')
-    return (a.abs().sum() + s.abs().sum()) / a.numel()
+    available = [x for x in (a,s) if x is not None]
+    return sum((x.abs().mean() for x in available), source_output.h_as.new_zeros(()))
+
 
 
 def domain_loss(discriminator, source_output, target_output):

@@ -51,12 +51,15 @@ class MemoryTraining:
             raise ValueError('Smoke checkpoint cannot initialize formal training')
         load_da(da_best, da.modules, da.metadata)
         self.device = da.source_inputs[0].device
-        self.memory = MemoryNetwork(da.classifier.num_classes, config.temperature).to(self.device)
+        from experiments.registry import variant
+        self.options = variant(config.variant)["options"]
+        self.memory = MemoryNetwork(da.classifier.num_classes, config.temperature,
+                                    self.options["similarity"], self.options["query_residual"]).to(self.device)
         self.modules = {**da.modules, 'memory': self.memory}
         self.source_ids = source.graph.node_id[source.graph.source_unlabeled_mask].to(self.device)
         self.target_ids = torch.arange(len(da.target_inputs[0]), device=self.device)
         self.anchor_state = sample_anchors(source, da.metadata, cache_root, K=config.K,
-                                          alpha=config.alpha, beta=config.beta)
+                                          alpha=config.alpha, beta=config.beta, strategy=self.options["anchors"])
         self.pseudo_state, self.refresh_history = {}, []
         data_hash = tensor_hash({'source_x': da.source_inputs[0], 'target_x': da.target_inputs[0],
             'source_edges': da.source_inputs[1].coalesce().indices(),
@@ -73,7 +76,7 @@ class MemoryTraining:
                                         'target': self.target_ids.cpu().tolist()})
         parents = {'da_best': reference(da_best)}
         if config.stage != 'memory_warmup':
-            if memory_best is None or Path(memory_best).stem != 'memory_best':
+            if memory_best is None or Path(memory_best).stem != ('untrained_memory' if not self.options['memory_warmup'] else 'memory_best'):
                 raise ValueError('PL stages require memory_best')
             inherited = read_verified(memory_best, best=True)
             self._check_inherited(inherited, identity, 'memory_warmup')
@@ -129,7 +132,7 @@ class MemoryTraining:
         ids = self.anchor_state['ids'].to(self.device)
         h_s, h_as = source.h_s[ids].detach(), source.h_as[ids].detach()
         representations = {'h_s': h_s, 'h_as': h_as,
-                           'key': F.normalize(self.memory.key(h_s), dim=-1),
+                           'key': F.normalize(self.memory.key(h_as if self.options['similarity'] == 'has' else h_s), dim=-1),
                            'value': self.memory.value(h_as)}
         self.anchor_state['representations'] = {k: v.detach().cpu().clone() for k, v in representations.items()}
         self.anchor_state['representation_hash'] = tensor_hash(self.anchor_state['representations'])
@@ -155,7 +158,8 @@ class MemoryTraining:
                 probability = self.memory_output(output, ids, source=domain == 'source').probability.detach()
                 state = select(probability, logits, ids, gamma=self.config.gamma, q=self.config.q,
                                previous=None if old is None else old['labels'].to(self.device),
-                               refresh_index=0 if old is None else old['refresh_index'] + 1)
+                               refresh_index=0 if old is None else old['refresh_index'] + 1,
+                               consistency=self.options['consistency'])
                 state.update(classifier_logits=logits, epoch=epoch, stage=self.config.stage,
                              anchor_representation_hash=self.anchor_state['representation_hash'])
                 state = {k: v.detach().cpu().clone() if isinstance(v, torch.Tensor) else v for k, v in state.items()}
@@ -163,6 +167,7 @@ class MemoryTraining:
                 self.refresh_history.append({'domain': domain, 'epoch': epoch, 'stage': self.config.stage,
                     'refresh_index': state['refresh_index'], 'coverage': state['coverage'],
                     'anchor_representation_hash': self.anchor_state['representation_hash']})
+
 
     def schedule(self, epoch):
         dual = self.config.stage == 'dual_domain_finetuning'
@@ -231,6 +236,11 @@ class MemoryTraining:
             raise ValueError('Existing checkpoints require explicit resume')
         end = min(self.config.max_epochs, until_epoch or self.config.max_epochs)
         best_name = STAGES[self.config.stage][3]
+        if self.config.stage == 'memory_warmup' and not self.options['memory_warmup']:
+            self.metadata['untrained_memory'] = True
+            save(self.output_dir / 'untrained_memory.pt', self)
+            return {'stage':self.config.stage, 'epoch':0, 'untrained_memory':True}
+
         while self.epoch < end and not self.early_stop.should_stop(self.epoch, self.config):
             epoch = self.epoch + 1
             step = self.train_step(epoch)

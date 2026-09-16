@@ -20,11 +20,12 @@ class MemoryOutput(NamedTuple):
 
 
 class MemoryNetwork(nn.Module):
-    def __init__(self, num_classes, temperature=.1):
+    def __init__(self, num_classes, temperature=.1, similarity="structure", query_residual=True):
         super().__init__()
         if num_classes < 2 or not math.isfinite(temperature) or temperature <= 0:
             raise ValueError('Invalid Memory classes/temperature')
         self.temperature = temperature
+        self.similarity, self.query_residual = similarity, query_residual
         self.query = nn.Linear(128, 128, bias=False)
         self.key = nn.Linear(128, 128, bias=False)
         self.value = nn.Linear(128, 128, bias=False)
@@ -41,8 +42,8 @@ class MemoryNetwork(nn.Module):
         for ids, size in ((query_ids, n), (anchor_ids, k)):
             if ids.dtype != torch.long or ids.shape != (size,) or ids.unique().numel() != size:
                 raise ValueError('Invalid or duplicate Memory node IDs')
-        q = F.normalize(self.query(h_s), dim=-1)
-        key = F.normalize(self.key(anchor_h_s), dim=-1)
+        q = F.normalize(self.query(h_as if self.similarity == "has" else h_s), dim=-1)
+        key = F.normalize(self.key(anchor_h_as if self.similarity == "has" else anchor_h_s), dim=-1)
         value = self.value(anchor_h_as)
         e = q @ key.T / self.temperature
         if source:
@@ -51,6 +52,6 @@ class MemoryNetwork(nn.Module):
         empty = torch.isneginf(e).all(-1, keepdim=True)
         a = e.masked_fill(empty, 0).softmax(-1).masked_fill(empty, 0)
         read = a @ value
-        fused = self.norm(h_as + self.fusion(torch.cat((h_as, read), -1)))
+        fused = self.norm((h_as if self.query_residual else 0) + self.fusion(torch.cat((h_as, read), -1)))
         logits = self.classifier(fused)
         return MemoryOutput(logits, logits.softmax(-1), q, key, value, e, a, read, fused)

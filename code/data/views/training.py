@@ -33,6 +33,14 @@ def load_training_views(manifest_path, source, target, label_rate, seed):
     if source == target or not any(t['source'] == source and t['target'] == target
                                   for t in manifest['tasks']):
         raise ValueError('Unknown transfer direction')
+    source_view = load_source_training(manifest_path, source, label_rate, seed)
+    tg = verified_tensor(root, manifest["domains"][target]["graph"])
+    target_view = TargetTrainView(**{key: tg[key] for key in TargetTrainView.__dataclass_fields__})
+    return source_view, target_view
+
+
+def load_source_training(manifest_path, source, label_rate, seed):
+    root, manifest = load_manifest(manifest_path)
     split = split_record(manifest, source, label_rate, seed)
     masks = verified_tensor(root, split['masks'])
     sg = GraphData(**verified_tensor(root, manifest['domains'][source]['graph']))
@@ -40,6 +48,4 @@ def load_training_views(manifest_path, source, target, label_rate, seed):
                  target_test_mask=torch.zeros_like(sg.node_id, dtype=torch.bool))
     labels = verified_tensor(root, split['train_labels'])
     source_view = SourceTrainView(sg, labels['node_id'], labels['labels'], split['split_hash'])
-    tg = verified_tensor(root, manifest['domains'][target]['graph'])
-    target_view = TargetTrainView(**{key: tg[key] for key in TargetTrainView.__dataclass_fields__})
-    return source_view, target_view
+    return source_view

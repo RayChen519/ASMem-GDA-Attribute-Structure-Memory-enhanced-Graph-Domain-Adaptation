@@ -3,6 +3,7 @@ import io
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import torch
@@ -27,6 +28,23 @@ def file_hash(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def _replace_with_retry(source, destination):
+    """Bounded retries for Windows access/sharing violations; never delete destination."""
+    delays = (0.05, 0.1, 0.2, 0.4, 0.8)
+    for attempt in range(len(delays) + 1):
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as error:
+            if getattr(error, 'winerror', None) not in (5, 32, 33):
+                raise
+            if attempt == len(delays):
+                error.add_note(f'Atomic replacement failed after {attempt + 1} attempts: '
+                               f'{destination}. Check file attributes, ACL and open handles.')
+                raise
+            time.sleep(delays[attempt])
+
+
 def atomic_write(path, writer):
     path = io_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -34,9 +52,13 @@ def atomic_write(path, writer):
     os.close(fd)
     try:
         writer(Path(temporary))
-        os.replace(temporary, path)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+        _replace_with_retry(temporary, path)
+    except BaseException as error:
+        try:
+            Path(temporary).unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            error.add_note(f'Temporary file cleanup also failed: {temporary}: {cleanup_error}')
+        raise
 
 
 def write_json(path, value):

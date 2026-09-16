@@ -8,7 +8,7 @@ from data.cache.store import Cache, digest
 from data.prepare import tensor_hash
 
 
-def sample_anchors(source, metadata, cache_root, *, K=128, alpha=2., beta=1.):
+def sample_anchors(source, metadata, cache_root, *, K=128, alpha=2., beta=1., strategy="weighted"):
     if not isinstance(source, SourceTrainView):
         raise TypeError('Anchor bank requires SourceTrainView')
     graph = source.graph
@@ -26,7 +26,7 @@ def sample_anchors(source, metadata, cache_root, *, K=128, alpha=2., beta=1.):
     inputs = dict(dataset_version=graph.dataset_version,
                   direction=[metadata['source'], metadata['target']],
                   label_rate=metadata['label_rate'], split_seed=metadata['seed'], K=K,
-                  sampler='weighted_without_replacement_v1', sampler_hparams={'alpha': alpha, 'beta': beta},
+                  sampler=strategy + '_without_replacement_v1', sampler_hparams={'alpha': alpha, 'beta': beta},
                   split_hash=source.split_hash,
                   graph_hash=tensor_hash({'ids': graph.node_id, 'degree': graph.degree,
                                           'eligible': eligible}))
@@ -34,8 +34,24 @@ def sample_anchors(source, metadata, cache_root, *, K=128, alpha=2., beta=1.):
         weights = alpha ** torch.log(degree[eligible].double() + 1) + beta
         if not torch.isfinite(weights).all() or (weights <= 0).any():
             raise ValueError('Invalid anchor weights')
+        if strategy == "uniform": weights = torch.ones_like(weights)
+        elif strategy == "degree_quantile":
+            order = torch.argsort(degree[eligible], stable=True)
+            bins = torch.empty(len(eligible), dtype=torch.long)
+            bins[order] = torch.arange(len(eligible)) * min(4, len(eligible)) // len(eligible)
+            weights = 1. / torch.bincount(bins)[bins].double()
+        elif strategy != "weighted": raise ValueError("Unknown anchor strategy")
         generator = torch.Generator().manual_seed(metadata['seed'])
-        ids = eligible[torch.multinomial(weights, K, replacement=False, generator=generator)]
+        if strategy == "degree_quantile":
+            buckets=[eligible[bins==b] for b in range(int(bins.max())+1)]
+            buckets=[bucket[torch.randperm(len(bucket),generator=generator)].tolist() for bucket in buckets]
+            selected=[]
+            while len(selected)<K:
+                for bucket in buckets:
+                    if bucket and len(selected)<K: selected.append(bucket.pop())
+            ids=torch.tensor(selected,dtype=torch.long)
+        else:
+            ids = eligible[torch.multinomial(weights, K, replacement=False, generator=generator)]
         return {'ids': ids, 'hash': tensor_hash({'ids': ids}), 'inputs_hash': digest(inputs)}
     bank, _, _ = Cache(cache_root).get_or_create('anchor', inputs, factory)
     ids = bank['ids']
